@@ -43,26 +43,39 @@ def convert(csv, out_dir):
     (out_dir / (csv.stem + ".json")).write_text(json.dumps({"fs": FS, "n": len(x), "block": BLOCK}))
 
 
+def _sigma(col, blk, stride=8):
+    """Quietest-10% block sigma, estimated from every `stride`-th 100 ms block."""
+    n = len(col) // blk
+    v = col[:n * blk].reshape(n, blk)[::stride].astype(np.float32)
+    return float(np.sqrt(np.mean(np.sort(v.std(1))[:max(1, len(v) // 10)] ** 2)))
+
+
 def detect(bin_path, k=30.0, blk=100, gap_s=1.0, no_dye=NO_DYE):
     a = np.memmap(bin_path, dtype=np.int16, mode="r").reshape(-1, 2)
-    x = np.asarray(a[:, 1], dtype=np.float32)          # adc2
+    x, y = a[:, 1], a[:, 0]                           # adc2, adc1 (strided views)
     n = len(x) // blk
-    sd = x[:n * blk].reshape(n, blk).std(1)
-    sigma = float(np.sqrt(np.mean(np.sort(sd)[:max(1, n // 10)] ** 2)))
+    sigma, thr = _sigma(x, blk), 0.0
     thr = k * sigma
-    mx = x[:n * blk].reshape(n, blk).max(1)
-    act = np.flatnonzero(mx > thr)                      # skip quiet blocks
+    mx = x[:n * blk].reshape(n, blk).max(1)           # int16, no float copy
+    act = np.flatnonzero(mx > thr)                    # skip quiet blocks
     peaks = []
     for run in np.split(act, np.flatnonzero(np.diff(act) > 1) + 1) if len(act) else []:
         lo, hi = max(0, run[0] * blk - 5), min(len(x), (run[-1] + 1) * blk + 5)
-        p, _ = find_peaks(x[lo:hi], height=thr, distance=5)
-        peaks.append(p + lo)
+        pk, _ = find_peaks(x[lo:hi].astype(np.float32), height=thr, distance=5)
+        peaks.append(pk + lo)
     p = np.concatenate(peaks) if peaks else np.empty(0, int)
     if len(p) == 0:
-        return {"sigma": sigma, "peaks": 0, "pieces": 0, "dyed": 0, "sum_height": 0.0}
+        return {"sigma": sigma, "peaks": 0, "pieces": 0, "dyed": 0, "solid_no_dye": 0,
+                "water": 0, "sum_height": 0.0, "dyed_height": 0.0,
+                "peak_t": p / FS, "peak_h": np.empty(0)}
     groups = np.split(p, np.flatnonzero(np.diff(p) > gap_s * FS) + 1)
-    h = x[p]
-    mxg = np.array([x[g].max() for g in groups])
+    h = x[p].astype(np.float32)
+    mxg = np.array([x[g].max() for g in groups], dtype=np.float32)
+    thr1 = k * _sigma(y, blk)
+    dim = [i for i in range(len(groups)) if mxg[i] <= no_dye]
+    solid = sum(int(y[max(0, groups[i][0] - 20):groups[i][-1] + 21].max() > thr1) for i in dim)
     return {"sigma": sigma, "peaks": len(p), "pieces": len(groups),
-            "dyed": int((mxg > no_dye).sum()), "sum_height": float(h.sum()),
-            "dyed_height": float(mxg[mxg > no_dye].sum())}
+            "dyed": int((mxg > no_dye).sum()), "solid_no_dye": solid,
+            "water": len(dim) - solid, "sum_height": float(h.sum()),
+            "dyed_height": float(mxg[mxg > no_dye].sum()),
+            "peak_t": p / FS, "peak_h": h}
