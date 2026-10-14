@@ -8,3 +8,11 @@ Calibration on the known-volume set (feature = sum of peak heights):
   1 : 1.5 : 2.1 (re-suction); 1 gr has 3 repeats ranging 41k–93k.
 
 Caveats: raw sampling rate assumed 50 kHz (the long run then lasts 4.69 h, consistent with the '4½ h' label); file 1 included (7.6 GB CSV, 4455 peaks, sum_height 980k = 61.3k per unit).
+
+## Slide-deck method (idp/method.py, scripts/run_method.py)
+
+Median(3) -> Savitzky-Golay(7,3) -> ALS baseline; sigma = std of quietest 10% of 200 ms blocks;
+peaks > 30 sigma; peaks < 1 s apart = one piece; dyed if max > 69 counts (no-dye level from the
+slides), else solid_no_dye if an adc1 peak is within +-20 ms, else water; amount = sum of dyed areas.
+Check on Big pieces: 41 dyed pieces (slide: 41), first piece at 122.6 s with area 10982 (slide: 11227).
+Per-file output: results/method_results.csv, per-piece output: results/method_pieces.csv.
