@@ -8,8 +8,6 @@ detect():  memory-map the .bin, skip quiet 100 ms blocks, find_peaks only in act
 import json
 from pathlib import Path
 import numpy as np
-import pyarrow as pa
-import pyarrow.csv as pc
 from scipy.signal import find_peaks
 
 BLOCK = 50          # raw samples per output sample
@@ -26,6 +24,8 @@ def _baseline(x, fs=FS, win_s=2.0):
 
 
 def convert(csv, out_dir):
+    import pyarrow as pa          # only needed for CSV conversion, not for detection
+    import pyarrow.csv as pc
     out_dir = Path(out_dir); out_dir.mkdir(parents=True, exist_ok=True)
     csv = Path(csv)
     ro = pc.ReadOptions(block_size=64 << 20)

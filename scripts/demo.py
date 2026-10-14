@@ -5,14 +5,22 @@ calibration line, and report timing. Needs the .bin files made by scripts/run_fa
 import sys, time, glob
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+print("loading...", flush=True)
+t_imp = time.perf_counter()
 import numpy as np
 from idp import fast
+print(f"imports done in {time.perf_counter() - t_imp:.1f} s", flush=True)
 
 bins = Path(sys.argv[1]); png = sys.argv[2] if len(sys.argv) > 2 else "demo.png"
+no_plot = "--no-plot" in sys.argv
 files = sorted(bins.glob("*.bin"))
+if not files:
+    sys.exit(f"No .bin files found in '{bins}'. Unzip data/processed_bins.zip into that folder first.")
+print(f"found {len(files)} .bin files in '{bins}'", flush=True)
 t0 = time.perf_counter(); res = {}
 for f in files:
     t = time.perf_counter(); r = fast.detect(f); r["ms"] = (time.perf_counter() - t) * 1e3; res[f.stem] = r
+    print(f"  {f.stem[:50]:50} {r['ms']:8.1f} ms", flush=True)
 total = time.perf_counter() - t0
 print(f"\nDetected peaks in {len(files)} recordings in {total:.2f} s "
       f"({sum(r['peaks'] for r in res.values()):,} peaks, "
@@ -34,6 +42,8 @@ for i, k in enumerate(units):
     m = np.arange(5) != i; s = (u[m] * h[m]).sum() / (u[m] ** 2).sum()
     print(f"  {k}: true {u[i]:>4.0f} units, predicted {h[i]/s:5.1f}  ({100*(h[i]/s-u[i])/u[i]:+.0f}%)")
 
+if no_plot: sys.exit(0)
+print("drawing figure (first matplotlib import can be slow)...", flush=True)
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
 fig, ax = plt.subplots(1, 3, figsize=(16, 4.5))
 k1 = next(n for n in res if n.startswith("known_1.") or n.startswith("known_1_"))
