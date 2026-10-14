@@ -34,3 +34,22 @@ Detection / clustering:
 - No ground-truth peak locations, so false-positive / false-negative rates are not measured.
 - MIDDLE concentration does not calibrate well (R2 0.93 on peak heights, worse on piece counts).
 - Tumor files with re-suction do not scale monotonically with size.
+
+## Preprocessing output for the detection stage (ready to use)
+
+`data/clean/<recording>.clean.npz` (28 files, 28 MB): 1 kHz, median + Savitzky-Golay denoised and
+ALS baseline-corrected `adc1` / `adc2`, plus sigma per channel.
+
+```python
+from idp.io import load_clean
+from idp import method as M
+
+d = load_clean("data/clean/big_pieces.clean.npz")
+# d["fs"] = 1000.0, d["adc1"], d["adc2"] (float32 counts, baseline = 0), d["t"] (s)
+# d["sigma"] = {"adc1": 0.87, "adc2": 1.01}, d["thr"] = k * sigma (k = 30)
+sig = {"a1": d["adc1"], "a2": d["adc2"], "sigma": d["sigma"], "fs": d["fs"]}
+pieces, summary = M.pieces(sig, no_dye_level=69.0)   # -> 41 dyed on big_pieces
+```
+Stored as int16 in 0.1-count steps (`scale = 0.1`), which `load_clean` undoes.
+`python scripts/export_clean.py NPZ_DIR OUT_DIR` regenerates them.
+Note: the raw recordings are assumed to be 50 kHz, so `fs` and `t` are nominal.
