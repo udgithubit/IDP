@@ -16,3 +16,10 @@ peaks > 30 sigma; peaks < 1 s apart = one piece; dyed if max > 69 counts (no-dye
 slides), else solid_no_dye if an adc1 peak is within +-20 ms, else water; amount = sum of dyed areas.
 Check on Big pieces: 41 dyed pieces (slide: 41), first piece at 122.6 s with area 10982 (slide: 11227).
 Per-file output: results/method_results.csv, per-piece output: results/method_pieces.csv.
+
+## Fast path (idp/fast.py, scripts/run_fast.py)
+
+One-time convert (pyarrow CSV -> mean-decimate 50:1 -> baseline subtracted -> int16 .bin),
+then detection on the memory-mapped .bin skipping quiet 100 ms blocks.
+Measured here (4 cores): convert all 28 CSVs once 158 s (7.6 GB file ~70-100 s);
+detect all 28 files 0.57 s (7.6 GB file 0.375 s); storage 97 MB (67 MB is the 4.7 h file).
