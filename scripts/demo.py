@@ -51,4 +51,10 @@ r = res[k1]; ax[0].plot(r["peak_t"] / 60, r["peak_h"], ".", ms=2); ax[0].set(tit
 ax[1].plot(u, h / 1e3, "o"); xs = np.linspace(0, 17, 2); ax[1].plot(xs, slope * xs / 1e3, "-")
 ax[1].set(title="Calibration (HIGH)", xlabel="volume_ml x (1 + re-suctions)", ylabel="sum of peak heights (k counts)")
 ms = [r["ms"] for r in res.values()]; ax[2].barh(range(len(ms)), ms); ax[2].set(title=f"Detection time per file (total {total:.2f} s)", xlabel="ms", yticks=[])
-plt.tight_layout(); plt.savefig(png, dpi=110); print(f"\nFigure saved: {png}")
+plt.tight_layout()
+try:
+    Path(png).parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(png, dpi=110); print(f"\nFigure saved: {png}")
+except OSError as e:                               # e.g. folder missing, file locked, odd path
+    alt = f"demo_figure_{int(time.time())}.png"
+    plt.savefig(alt, dpi=110); print(f"\nCould not save '{png}' ({e}); saved {alt} in the current folder instead")
