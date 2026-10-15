@@ -15,7 +15,8 @@ from scipy.signal import medfilt, savgol_filter, find_peaks
 RAW_FS, BLOCK = 50_000, 50          # 50 kHz -> 1 kHz
 MED, SG_WIN, SG_ORDER = 3, 7, 3     # noise reduction
 ALS_LAM, ALS_P, ALS_DS = 1e5, 0.01, 100   # baseline (fitted on 10 Hz block means)
-K = 30                              # threshold = K * sigma
+K = 10                              # threshold = K * sigma (the group's detection uses a prominence above 10 x sigma)
+IDLE_CUT = 0.5                      # blocks with std below 0.5 x the median block std are idle and dropped before sigma
 # -----------------------------------------------------------------------------
 
 def decimate(csv):
@@ -46,7 +47,8 @@ def baseline(y):
 def quiet_sigma(x, fs=1000.0, block_s=0.2, frac=0.10):
     b = int(block_s * fs); n = len(x) // b
     s = np.sort(x[:n * b].reshape(n, b).std(1))
-    return float(np.sqrt(np.mean(s[:max(1, int(frac * n))] ** 2)))
+    s = s[s >= IDLE_CUT * np.median(s)]            # drop idle blocks (no flow), as in the group's core/preprocessing.py
+    return float(np.sqrt(np.mean(s[:max(1, int(frac * len(s)))] ** 2)))
 
 if __name__ == "__main__":
     csv = sys.argv[1]; png = sys.argv[2] if len(sys.argv) > 2 else "demo_preprocessing.png"
@@ -62,7 +64,7 @@ if __name__ == "__main__":
     print(f"{len(x):,} samples at {fs:.0f} Hz ({len(x)/fs/60:.1f} min)")
     print(f"CSV -> 1 kHz: {t_dec:.1f} s | noise reduction + baseline + sigma (both channels): {t_clean:.2f} s")
     for n, (_, _, _, _, s) in res.items():
-        print(f"{n}: sigma = {s:.2f} counts, threshold = {K} x sigma = {K * s:.1f} counts")
+        print(f"{n}: sigma = {s:.2f} counts, threshold = {K} x sigma = {K * s:.1f} counts (peak prominence used by the detection)")
 
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
     raw, den, base, cor, s = res["adc2"]
