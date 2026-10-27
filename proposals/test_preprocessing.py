@@ -27,7 +27,8 @@ def test_als_short_inputs_do_not_crash():
 def test_baseline_removes_a_slow_drift_and_keeps_a_peak():
     t = np.arange(60_000) / 1000.0
     x = 600 + 0.5 * t + np.random.default_rng(1).normal(0, 1, t.size)
-    x[29_998:30_003] += np.array([200, 600, 900, 600, 200])   # a 5 ms wide peak, like the real ones
+    i = np.arange(60_000)
+    x += 900 * np.exp(-0.5 * ((i - 30_000) / 2.0) ** 2)       # a bell-shaped peak a few ms wide, like the real ones
     clean = P.clean_channel(x)
     assert abs(np.median(clean)) < 5                   # drift gone, baseline near 0
     assert clean[29_990:30_010].max() > 600            # the peak survives (the filters trim some height)
